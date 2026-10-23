@@ -14,5 +14,14 @@
     <tizen:privilege name="http://tizen.org/privilege/tv.inputdevice"/>
     <tizen:privilege name="http://tizen.org/privilege/tv.window"/>
     <tizen:profile name="tv-samsung"/>
+    <tizen:feature name="http://tizen.org/feature/web.service"/>
+    <tizen:privilege name="http://tizen.org/privilege/preference"/>
+    <tizen:service id="FreeMyTVio.Startup" auto-restart="false" on-boot="true" type="ui">
+      <tizen:content src="boot-service.js"/>
+      <tizen:name>Free My TV Startup</tizen:name>
+      <tizen:description>Opens Free My TV after boot or a detected standby wake.</tizen:description>
+      <tizen:icon src="icon.png"/>
+      <tizen:category name="http://tizen.org/category/service"/>
+    </tizen:service>
     <tizen:setting screen-orientation="landscape" context-menu="disable" background-support="disable" encryption="disable" install-location="auto" hwkey-event="enable"/>
 </widget>

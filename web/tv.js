@@ -101,6 +101,7 @@ var TV = (function () {
   // MU6100 (Tizen 3) no iconPath loads at all, so common apps get a logo here: Simple Icons' (CC0), cropped and tinted
   // for the tiles, with a width and height so old WebKit sizes them like PNGs.
   var SAMSUNG_ICONS = {
+    'org.tizen.primevideo': 'icons/prime.png',
     '9Ur5IzDKqV.TizenYouTube': 'icons/youtube.png',
     'evKhCgZelL.AmazonIgnitionLauncher2': 'icons/prime.png',
     'RN1MCdNq8t.Netflix': 'icons/netflix.svg',
@@ -119,6 +120,7 @@ var TV = (function () {
 
   // Names Smart Hub gets wrong: HBO's app has none (so it never reached the shelf), others are long or old.
   var SAMSUNG_TITLES = {
+    'org.tizen.primevideo': 'Prime Video',
     'NvZ26VG9Yw.HBOGOLAG': 'Max',
     'rJeHak5zRg.Spotify': 'Spotify',
     'evKhCgZelL.AmazonIgnitionLauncher2': 'Prime Video'
@@ -179,7 +181,8 @@ var TV = (function () {
         var out = [];
         for (var i = 0; i < list.length; i++) {
           var a = list[i];
-          if (!a.id || a.show === false || a.id === self || SAMSUNG_HIDDEN.test(a.id)) continue;
+          var prime = a.id === 'org.tizen.primevideo';
+          if (!a.id || a.id === self || (!prime && (a.show === false || SAMSUNG_HIDDEN.test(a.id)))) continue;
           var icon = a.iconPath || '';
           if (icon && icon.indexOf('://') < 0) icon = 'file://' + icon;
           if (SAMSUNG_ICONS[a.id]) icon = SAMSUNG_ICONS[a.id];

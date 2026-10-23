@@ -47,7 +47,7 @@ var Prefs = (function () {
     temperature: function () { return pick('temperature', CONFIG.temperature || 'auto'); },
     theme: function () { return pick('theme', 'auto'); },
     weather: function () { return pick('weather', true); },
-    quotes: function () { return pick('quotes', CONFIG.showCrypto !== false); },
+    quotes: function () { return false; },
     coin: function (i) { var c = pick('coins', null); return c ? c[i] !== false : true; },
     shelf: function () { return pick('shelf', null); },
     set: function (name, value) { v[name] = value; save(); this.version++; },
@@ -504,6 +504,7 @@ var Data = (function () {
     try { return v.toLocaleString(I18N.locale(), {minimumFractionDigits: digits, maximumFractionDigits: digits}); } catch (e) { return v.toFixed(digits); }
   }
 
+  var recsRequested = false;
   var SYMBOLS = {USD: '$', BRL: 'R$ ', EUR: '€', GBP: '£', JPY: '¥'};
 
   return {
@@ -513,7 +514,8 @@ var Data = (function () {
     onChange: function (fn) { listeners.push(fn); },
     setApps: function (apps) { installed = apps; },
     appFor: appFor,
-    refresh: function () { refreshWeather(); refreshPrices(); refreshRecs(); },
+    refresh: function () { refreshWeather(); refreshPrices(); if (recsRequested) refreshRecs(); },
+    recommendations: function (on) { recsRequested = on; if (on) refreshRecs(); },
     settingsChanged: function () { pricesAt = 0; refreshPrices(); changed(); },
     get weather() { return weather; },
     get weatherAt() { return weatherAt; },

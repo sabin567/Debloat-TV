@@ -1,5 +1,13 @@
 # Your settings and signing key stay on your machine
 config.properties
+config.local.properties
+share/
+*.p12
+*.pfx
+*.pem
+*.key
+signing-backup.json
+tizenbrewInstallerConfig.json
 *.keystore
 *.idsig
 

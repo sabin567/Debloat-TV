@@ -115,41 +115,79 @@
   var apps = [], shelf = [], others = [], inputs = [];
 
   function pickShelf() {
-    var chosen = Prefs.shelf(), out = [];
-    if (chosen) {
-      for (var i = 0; i < chosen.length && out.length < MAX_SHELF; i++) {
-        for (var j = 0; j < apps.length; j++) if (apps[j].id === chosen[i]) out.push(apps[j]);
-      }
-    } else {
-      for (var s = 0; s < SHELF.length && out.length < MAX_SHELF; s++) {
+    var wanted = [
+      ['YouTube', /^youtube$/i, '9Ur5IzDKqV.TizenYouTube', 'icons/youtube.png'],
+      ['Prime Video', /^(prime video|amazon prime video)$/i, 'org.tizen.primevideo', 'icons/prime.png'],
+      ['Netflix', /^netflix$/i, 'org.tizen.netflix-app', 'icons/netflix.svg'],
+      ['Alexa', /^(amazon )?alexa$/i, 'AQKO41xyKP.AmazonAlexa', '']
+    ], out = [], chosen = Prefs.shelf();
+    if (chosen !== null) {
+      for (var c = 0; c < chosen.length && out.length < MAX_SHELF; c++) {
         for (var a = 0; a < apps.length; a++) {
-          if ((SHELF[s][1].test(apps[a].id) || SHELF[s][2].test(apps[a].title)) && out.indexOf(apps[a]) < 0) { out.push(apps[a]); break; }
+          if (apps[a].id === chosen[c] && out.indexOf(apps[a]) < 0) { out.push(apps[a]); break; }
         }
       }
-      if (!out.length) out = apps.slice(0, MAX_SHELF);
+    } else {
+    for (var i = 0; i < wanted.length; i++) {
+      var spec = wanted[i], found = null;
+      for (var j = 0; j < apps.length; j++) {
+        if (apps[j].id === spec[2]) { found = apps[j]; break; }
+      }
+      if (!found) for (j = 0; j < apps.length; j++) {
+        if (spec[1].test(apps[j].title)) { found = apps[j]; break; }
+      }
+      if (found) out.push(found);
+    }
     }
     shelf = out;
     others = apps.filter(function (x) { return shelf.indexOf(x) < 0; });
   }
 
+
+  var recentTitles = [];
+  try { recentTitles = JSON.parse(localStorage.getItem('fmtv.recenttitles')) || []; } catch (e) {}
+  function rememberTitle(p, app) {
+    recentTitles = recentTitles.filter(function (x) { return x.id !== p.id; });
+    recentTitles.unshift({id: p.id, title: p.title, backdrop: p.backdrop, appId: app.id, appName: app.title});
+    recentTitles = recentTitles.slice(0, 4);
+    try { localStorage.setItem('fmtv.recenttitles', JSON.stringify(recentTitles)); } catch (e) {}
+    renderRecent();
+  }
+  function renderRecent() {
+    var box = $('recenttitles');
+    if (!box) { box = el('div', '', $('home')); box.id = 'recenttitles'; }
+    box.innerHTML = '';
+    setClass(body, 'has-recent', recentTitles.length > 0);
+    if (!recentTitles.length) return;
+    el('div', 'recent-heading', box, 'Recently opened · resumes in the streaming app');
+    recentTitles.forEach(function (p, i) {
+      var tile = el('button', 'recent-tile', box);
+      if (p.backdrop) tile.style.backgroundImage = 'url(' + Data.image(p.backdrop, 'w780') + ')';
+      el('span', '', tile, p.title + ' · ' + p.appName);
+      hover(tile, Z.RECENT, i);
+    });
+  }
+
   // MARK: - Focus
 
-  var Z = {TOP: 'top', CARDS: 'cards', SHELF: 'shelf', DRAWER: 'drawer', APPS: 'apps', SETTINGS: 'settings', EDIT: 'edit', LANG: 'lang'};
-  var st = {zone: Z.SHELF, top: 0, tab: 0, card: 0, shelf: 0, drawer: 0, grid: 0, row: 0, edit: 0, lang: 0};
+  var Z = {RECENT: 'recent', TOP: 'top', CARDS: 'cards', SHELF: 'shelf', DRAWER: 'drawer', APPS: 'apps', SETTINGS: 'settings', EDIT: 'edit', LANG: 'lang'};
+  var st = {recent: 0, zone: Z.SHELF, top: 0, tab: 0, card: 0, shelf: 0, drawer: 0, grid: 0, row: 0, edit: 0, lang: 0};
   var cards = [];
 
   function sheetOpen() { return st.zone === Z.APPS || st.zone === Z.SETTINGS || st.zone === Z.EDIT || st.zone === Z.LANG; }
 
   function updateFocus() {
     var i, list;
+    var recentNodes = document.querySelectorAll('#recenttitles button');
+    for (i = 0; i < recentNodes.length; i++) setClass(recentNodes[i], 'focus', st.zone === Z.RECENT && st.recent === i);
     list = $('tabs').children;
     for (i = 0; i < list.length; i++) {
       setClass(list[i], 'on', i === st.tab);
       setClass(list[i], 'focus', st.zone === Z.TOP && st.top === i);
     }
     list = $('buttons').children;
-    for (i = 0; i < list.length; i++) setClass(list[i], 'focus', st.zone === Z.TOP && st.top === 3 + i);
-    setClass($('quotes'), 'hide', st.zone === Z.TOP && st.top >= 3);
+    for (i = 0; i < list.length; i++) setClass(list[i], 'focus', st.zone === Z.TOP && st.top === 1 + i);
+    setClass($('quotes'), 'hide', st.zone === Z.TOP && st.top >= 1);
     list = $('cards').children;
     for (i = 0; i < list.length; i++) setClass(list[i], 'focus', st.zone === Z.CARDS && st.card === i);
     list = $('tiles').children;
@@ -199,8 +237,8 @@
     $('title').textContent = tr('For You');
     var tabs = $('tabs');
     tabs.innerHTML = '';
-    var names = [tr('Explore'), tr('Movies'), tr('Shows')];
-    for (var i = 0; i < 3; i++) {
+    var names = ['Home'];
+    for (var i = 0; i < names.length; i++) {
       var t = el('button', 'tab', tabs, names[i]);
       hover(t, Z.TOP, i);
     }
@@ -212,7 +250,7 @@
       r.style.left = (1596 + 88 * b) + 'px';
       sym(defs[b][0], r);
       el('div', 'tip', r, defs[b][1]);
-      hover(r, Z.TOP, 3 + b);
+      hover(r, Z.TOP, 1 + b);
     }
   }
 
@@ -229,7 +267,11 @@
   // MARK: - Picks and background
 
   function renderCards() {
-    var list = Data.picks(TAB_KIND[st.tab]);
+    var list = st.tab ? Data.picks(TAB_KIND[st.tab]) : [];
+    setClass(body, 'recommendations', st.tab !== 0);
+    $('title').textContent = st.tab === 1 ? 'Movies' : st.tab === 2 ? 'Shows' : 'Home';
+    var hint = $('recommendationhint');
+    if (hint) { hint.style.display = st.tab && !list.length ? 'block' : 'none'; hint.textContent = !Data.hasKey() ? 'Add a TMDB key to see recommendations.' : Data.recsError() ? 'Recommendations could not load. Check the connection and try again.' : 'Loading recommendations for your streaming apps…'; }
     var holder = $('cards');
     setClass(body, 'no-picks', !list.length);
     var same = list.length === cards.length;
@@ -279,9 +321,11 @@
   }
 
   function renderClock() {
-    var d = new Date(), c = $('clock');
-    c.firstChild.textContent = formatDate('format|h:mm', d.getTime());
-    c.lastChild.textContent = formatDate('format|EEEE, MMMM d', d.getTime());
+    var now = Date.now(), c = $('clock');
+    c.firstChild.textContent = 'Sydney  ' + HomeClocks.time(now, 'Australia/Sydney');
+    c.lastChild.textContent = HomeClocks.date(now, 'Australia/Sydney') +
+      '  ·  Kathmandu  ' + HomeClocks.time(now, 'Asia/Kathmandu') +
+      '  ·  ' + HomeClocks.date(now, 'Asia/Kathmandu');
   }
 
   // MARK: - Shelf
@@ -470,6 +514,7 @@
     var unit = Prefs.temperature(), theme = Prefs.theme();
     var auto = tr('Automatic'), picked = pickedLanguage();
     var rows = [
+      {label: 'Open Free My TV at startup', toggle: Startup.enabled(), step: function () { Startup.toggle(); }},
       {label: tr('Language'), value: picked === 'auto' ? auto : I18N.languageName(picked), opens: true, language: true,
         step: function (d) { if (d >= 0) openLanguages(); }},
       {label: tr('Temperature'), value: unit === 'C' ? '°C' : unit === 'F' ? '°F' : tr('unit|Automatic'),
@@ -477,18 +522,11 @@
       {label: tr('Theme'), value: theme === 'light' ? tr('Light') : theme === 'dark' ? tr('Dark') : auto,
         step: function (d) { cycle('theme', ['auto', 'light', 'dark'], theme, d); checkNight(); }},
       {label: tr('Weather widget'), toggle: Prefs.weather(),
-        step: function () { Prefs.set('weather', !Prefs.weather()); renderPanels(); }},
-      {label: tr('Quotes widget'), toggle: Prefs.quotes(),
-        step: function () { Prefs.set('quotes', !Prefs.quotes()); Data.settingsChanged(); }}
+        step: function () { Prefs.set('weather', !Prefs.weather()); renderPanels(); }}
     ];
-    var names = ['Bitcoin', 'Ethereum', 'Solana', tr('Dollar')];
-    var count = Data.currency === 'BRL' ? 4 : 3;
-    for (var i = 0; i < count; i++) {
-      (function (i) {
-        rows.push({label: names[i], toggle: Prefs.quotes() && Prefs.coin(i), dim: !Prefs.quotes(),
-          step: function () { if (Prefs.quotes()) { Prefs.setCoin(i, !Prefs.coin(i)); Data.settingsChanged(); } }});
-      })(i);
-    }
+    ETFWatch.funds.forEach(function (ticker) {
+      rows.push({label: ticker + ' price', toggle: ETFWatch.on(ticker), step: function () { ETFWatch.toggle(ticker); }});
+    });
     rows.push({label: tr('Shelf'), value: '›', step: function (d) { if (d >= 0) openShelfEdit(); }});
     rows.push({label: tr('TV Settings'), value: '›', step: function (d) { if (d >= 0) tvSettings(); }});
     return rows;
@@ -577,7 +615,10 @@
     var code = languageChoices()[st.lang];
     if (pick && code !== pickedLanguage()) {
       Prefs.set('language', code);
-      I18N.set(Prefs.language());
+      el('div', '', $('home')).id = 'recommendationhint';
+  renderRecent();
+  I18N.set(Prefs.language());
+  Startup.start();
       renderAll();
       Data.refresh();   // the picks' titles and genres come in the new language
     }
@@ -650,7 +691,7 @@
   function launcher(id, name) {
     return function () {
       TV.launch(id, null, function (ok) {
-        if (!ok) toast(trf("Couldn't open {app}.", {app: name || id}));
+        if (!ok) toast(name === 'Prime Video' ? 'Install Prime Video from Samsung Apps, then reopen Free My TV.' : trf("Couldn't open {app}.", {app: name || id}));
       });
     };
   }
@@ -668,15 +709,19 @@
 
   function activate() {
     switch (st.zone) {
+      case Z.RECENT:
+        var recent = recentTitles[st.recent];
+        if (recent) launcher(recent.appId, recent.appName)();
+        return;
       case Z.TOP:
-        if (st.top < 3) return;
-        if (st.top === 3) { var live = liveTV(); if (live) launcher(live.id, tr('Live TV'))(); }
-        else if (st.top === 4) { st.zone = Z.SHELF; openDrawer(); st.drawer = 1 < drawerInputs ? 1 : 0; updateFocus(); }
+        if (st.top === 0) { selectTab(0); return; }
+        if (st.top === 1) { var live = liveTV(); if (live) launcher(live.id, tr('Live TV'))(); }
+        else if (st.top === 2) { st.zone = Z.SHELF; openDrawer(); st.drawer = 1 < drawerInputs ? 1 : 0; updateFocus(); }
         else openSettings();
         return;
       case Z.CARDS:
         var p = cards[st.card], app = p && Data.appFor(p.app);
-        if (app) launcher(app.id, app.title)();
+        if (app) { rememberTitle(p, app); launcher(app.id, app.title)(); }
         return;
       case Z.SHELF:
         if (shelf[st.shelf]) launcher(shelf[st.shelf].id, shelf[st.shelf].title)();
@@ -700,19 +745,26 @@
   }
 
   function selectTab(i) {
-    if (i === st.tab) return;
     st.tab = i;
+    Data.recommendations(i !== 0);
     renderCards();
+    updateFocus();
   }
 
   function move(dx, dy) {
     var tiles = $('tiles').children, cardNodes = $('cards').children;
     switch (st.zone) {
+      case Z.RECENT:
+        if (dx) st.recent = Math.max(0, Math.min(recentTitles.length - 1, st.recent + dx));
+        else if (dy > 0) st.zone = Z.SHELF;
+        else { st.zone = Z.TOP; st.top = 0; }
+        break;
       case Z.SHELF:
         if (dx) st.shelf = Math.max(0, Math.min(shelf.length - 1, st.shelf + dx));
         else if (dy > 0) { openDrawer(); return; }
         else if (dy < 0) {
           if (cards.length) { st.zone = Z.CARDS; st.card = nearest(cardNodes, centerX(tiles[st.shelf])); }
+          else if (recentTitles.length && !st.tab) st.zone = Z.RECENT;
           else { st.zone = Z.TOP; st.top = st.tab; }
         }
         break;
@@ -723,11 +775,11 @@
         break;
       case Z.TOP:
         if (dx) {
-          st.top = Math.max(0, Math.min(5, st.top + dx));
-          if (st.top < 3) selectTab(st.top);   // as on Apple TV: focusing a tab selects it
+          st.top = Math.max(0, Math.min(3, st.top + dx));
+          // Open a page only on OK, not when moving focus.
         } else if (dy > 0) {
           if (cards.length) { st.zone = Z.CARDS; st.card = Math.min(cards.length - 1, st.top < 3 ? 0 : cards.length - 1); }
-          else st.zone = Z.SHELF;
+          else st.zone = recentTitles.length && !st.tab ? Z.RECENT : Z.SHELF;
         }
         break;
       case Z.DRAWER:
@@ -757,6 +809,7 @@
   }
 
   function back() {
+    if (st.tab && !sheetOpen()) { selectTab(0); st.zone = Z.SHELF; updateFocus(); return; }
     if (st.zone === Z.EDIT) { setClass($('shelfedit'), 'open', false); openSettings(); st.row = rowsNow.length - 2; updateFocus(); return; }
     if (st.zone === Z.LANG) { closeLanguages(false); return; }
     if (sheetOpen()) { closeSheets(); return; }
@@ -773,8 +826,9 @@
       if (zone !== Z.DRAWER && st.zone === Z.DRAWER && zone !== Z.SHELF) return;
       if (zone === Z.SHELF && st.zone === Z.DRAWER) closeDrawer();
       st.zone = zone;
-      if (zone === Z.TOP) { st.top = index; if (index < 3) selectTab(index); }
+      if (zone === Z.TOP) { st.top = index; }
       else if (zone === Z.CARDS) st.card = index;
+      else if (zone === Z.RECENT) st.recent = index;
       else if (zone === Z.SHELF) st.shelf = index;
       else if (zone === Z.DRAWER) st.drawer = index;
       else if (zone === Z.APPS) st.grid = index;
@@ -806,43 +860,55 @@
   var saverOn = false, idleAt = Date.now(), saverIndex = 0, saverTimer = 0, SAVER_AFTER = 5 * 60000;
 
   function showSaver() {
-    var photos = Data.showcase().filter(function (p) { return p.backdrop && Data.appFor(p.app); });
     saverOn = true;
     var s = $('saver');
     s.innerHTML = '';
-    var a = el('div', 'photo', s), b = el('div', 'photo', s);
-    el('div', 'shade', s);
-    var clock = el('div', 'clock', s);
-    el('div', 'time', clock);
-    el('div', 'date', clock);
-    el('div', 'title', clock);
-    var front = a;
-    function next() {
-      if (!saverOn) return;
-      var p = photos.length ? photos[saverIndex++ % photos.length] : null;
-      var back = front === a ? b : a;
-      if (p) {
-        back.style.backgroundImage = 'url(' + Data.image(p.backdrop, 'original') + ')';
-        back.style.webkitTransform = back.style.transform = 'scale(1.0)';
-        clock.lastChild.textContent = p.title;
-        setTimeout(function () {
-          setClass(back, 'on', true);
-          setClass(front, 'on', false);
-          back.style.webkitTransform = back.style.transform = 'scale(1.08) translateX(-1.5%)';
-          front = back;
-        }, 60);
-      }
-      tickSaverClock(clock);
-      saverTimer = setTimeout(next, 12000);
-    }
+    var sky = el('div', 'weather-sky', s);
+    el('div', 'sky-orb', sky);
+    el('div', 'sky-cloud cloud-one', sky);
+    el('div', 'sky-cloud cloud-two', sky);
+    el('div', 'sky-rain', sky);
+    var scene = el('div', 'saver-content', s);
+    el('div', 'weather-location', scene, 'SYDNEY · WEATHER');
+    var weather = el('div', 'saver-weather', scene);
+    el('div', 'saver-temperature', weather);
+    var details = el('div', 'saver-weather-details', weather);
+    el('div', 'saver-condition', details);
+    el('div', 'saver-range', details);
+    el('div', 'saver-weather-age', details);
+    var clock = el('div', 'clock', scene);
+    var syd = el('div', 'saver-city', clock);
+    el('div', 'city-label', syd, 'SYDNEY');
+    el('div', 'sydney-time', syd);
+    el('div', 'sydney-date', syd);
+    var ktm = el('div', 'saver-city kathmandu', clock);
+    el('div', 'city-label', ktm, 'KATHMANDU');
+    el('div', 'ktm-time', ktm);
+    el('div', 'ktm-date', ktm);
     setClass(s, 'on', true);
-    next();
+    tickSaverClock(clock);
   }
 
   function tickSaverClock(clock) {
-    var d = new Date();
-    clock.firstChild.textContent = formatDate('format|h:mm', d.getTime());
-    clock.children[1].textContent = formatDate('format|EEEE, MMMM d', d.getTime());
+    if (!clock) return;
+    var now = Date.now(), w = Data.weather, s = $('saver');
+    clock.querySelector('.sydney-time').textContent = HomeClocks.time(now, 'Australia/Sydney');
+    clock.querySelector('.sydney-date').textContent = HomeClocks.date(now, 'Australia/Sydney');
+    clock.querySelector('.ktm-time').textContent = HomeClocks.time(now, 'Asia/Kathmandu');
+    clock.querySelector('.ktm-date').textContent = HomeClocks.date(now, 'Asia/Kathmandu');
+    var night = Data.isNight(now), code = w ? w.code : 0;
+    var rainy = code >= 51 && code < 70 || code >= 80;
+    setClass(s, 'sky-night', night);
+    setClass(s, 'sky-overcast', code >= 2 && code <= 48);
+    setClass(s, 'sky-wet', rainy);
+    setClass(s, 'sky-snow', code >= 71 && code <= 77 || code === 85 || code === 86);
+    s.querySelector('.saver-temperature').textContent = w ? Data.degrees(w.temp) : '—';
+    s.querySelector('.saver-condition').textContent = w ? Data.condition(code, !night) : 'Weather unavailable';
+    s.querySelector('.saver-range').textContent = w ? 'High ' + Data.degrees(w.max) + '   /   Low ' + Data.degrees(w.min) : '';
+    var stale = Data.staleness(Data.weatherAt, 30 * 60000);
+    s.querySelector('.saver-weather-age').textContent = w ? 'Open-Meteo' + (stale ? ' · Updated ' + stale : '') : 'Updates when connected';
+    var content = s.querySelector('.saver-content'), shift = Math.floor(now / 60000) % 5;
+    content.style.webkitTransform = content.style.transform = 'translate(' + (shift * 5) + 'px,' + (shift * 3) + 'px)';
   }
 
   function hideSaver() {
@@ -914,7 +980,8 @@
     closeSheets();
     st.zone = Z.SHELF;
     st.shelf = 0;
-    if (st.tab !== 0) { st.tab = 0; renderCards(); }
+    selectTab(0);
+    renderRecent();
     updateFocus();
   }
 
@@ -941,7 +1008,13 @@
     loadApps(function () { renderShelf(); renderDrawer(); updateFocus(); Data.refresh(); });
   });
 
+  el('div', '', $('home')).id = 'recommendationhint';
+  renderRecent();
   I18N.set(Prefs.language());
+  var etfBox = el('div', '', $('home'));
+  etfBox.id = 'etfwatch';
+  ETFWatch.render();
+  ETFWatch.refresh();
   fit();
   renderTop();
   loadApps(function () {
@@ -949,6 +1022,7 @@
     Data.refresh();
   });
   setInterval(function () {
+    ETFWatch.refresh();
     renderClock();
     checkNight();
     Data.refresh();
